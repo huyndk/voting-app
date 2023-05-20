@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Variables
-resourceGroup="voting-app"
-location="eastasia"
+resourceGroup="voting-app-rss-group"
+location="eastus"
 osType="UbuntuLTS"
 vmssName="voting-app-vmss"
 adminName="udacityadmin"
