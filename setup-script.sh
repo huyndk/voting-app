@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Variables
-resourceGroup="voting-app-rss-group"
+resourceGroup="voting-app"
 location="eastus"
 osType="UbuntuLTS"
-vmssName="voting-app-vmss"
+vmssName="vmss"
 adminName="udacityadmin"
 storageAccount="udacitydiag$RANDOM"
 bePoolName="$vmssName-bepool"
