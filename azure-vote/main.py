@@ -1,4 +1,6 @@
 from flask import Flask, request, render_template
+from applicationinsights import TelemetryClient
+from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
 import os
 import random
 import redis
@@ -7,7 +9,26 @@ import sys
 import logging
 from datetime import datetime
 
+# App Insights
+# TODO: Import required libraries for App Insights
+
+# Logging
+logger = logging.getLogger(__name__)
+
+# Metrics
+exporter = AzureMonitorLogExporter(
+    connection_string='InstrumentationKey=12c991c0-d41c-4929-a794-b62b5414f0f3;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/',
+)
+
+# Tracing
+tracer = TelemetryClient('12c991c0-d41c-4929-a794-b62b5414f0f3')
+
+
 app = Flask(__name__)
+
+# Requests
+#middleware = # TODO: Setup flask middleware
+
 # Load configurations from environment or config file
 app.config.from_pyfile('config_file.cfg')
 
@@ -29,7 +50,6 @@ else:
 # Redis Connection
 r = redis.Redis()
 
-
 # Change title to host name to demo NLB
 if app.config['SHOWHOST'] == "true":
     title = socket.gethostname()
@@ -46,8 +66,11 @@ def index():
         # Get current values
         vote1 = r.get(button1).decode('utf-8')
         # TODO: use tracer object to trace cat vote
+        tracer.track_trace('Cats are having: ', vote1)
+
         vote2 = r.get(button2).decode('utf-8')
         # TODO: use tracer object to trace dog vote
+        tracer.track_trace('Dogs are having: ', vote2)
 
         # Return index with values
         return render_template("index.html", value1=int(vote1), value2=int(vote2), button1=button1, button2=button2, title=title)
@@ -62,10 +85,12 @@ def index():
             vote1 = r.get(button1).decode('utf-8')
             properties = {'custom_dimensions': {'Cats Vote': vote1}}
             # TODO: use logger object to log cat vote
+            logger.info('Cats got ' + vote1); 
 
             vote2 = r.get(button2).decode('utf-8')
             properties = {'custom_dimensions': {'Dogs Vote': vote2}}
             # TODO: use logger object to log dog vote
+            logger.info('Dogs got ' + vote2); 
 
             return render_template("index.html", value1=int(vote1), value2=int(vote2), button1=button1, button2=button2, title=title)
 
