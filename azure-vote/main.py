@@ -1,33 +1,50 @@
 from flask import Flask, request, render_template
-from applicationinsights import TelemetryClient
-from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
+from opencensus.ext.azure.log_exporter import AzureLogHandler
+from opencensus.ext.azure.log_exporter import AzureEventHandler
+from opencensus.stats import stats as stats_module
+from opencensus.trace.tracer import Tracer
+from opencensus.ext.azure import metrics_exporter
+from opencensus.ext.flask.flask_middleware import FlaskMiddleware
+from opencensus.ext.azure.trace_exporter import AzureExporter
+from opencensus.trace.samplers import ProbabilitySampler
 import os
-import random
 import redis
 import socket
-import sys
 import logging
-from datetime import datetime
 
 # App Insights
 # TODO: Import required libraries for App Insights
 
+appInsightsConnectionString = 'InstrumentationKey=12c991c0-d41c-4929-a794-b62b5414f0f3'
 # Logging
 logger = logging.getLogger(__name__)
+handler = AzureLogHandler(connection_string=appInsightsConnectionString)
+handler.setFormatter(logging.Formatter('%(traceId)s %(spanId)s %(message)s'))
+logger.addHandler(handler)
+logger.addHandler(AzureEventHandler(connection_string=appInsightsConnectionString))
 
 # Metrics
-exporter = AzureMonitorLogExporter(
-    connection_string='InstrumentationKey=12c991c0-d41c-4929-a794-b62b5414f0f3;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/',
-)
+stats = stats_module.stats
+view_manager = stats.view_manager
+exporter = metrics_exporter.new_metrics_exporter(
+  enable_standard_metrics=True,
+  connection_string=appInsightsConnectionString)
+view_manager.register_exporter(exporter)
 
 # Tracing
-tracer = TelemetryClient('12c991c0-d41c-4929-a794-b62b5414f0f3')
-
-
+tracer = Tracer(
+    exporter=AzureExporter(
+        connection_string=appInsightsConnectionString),
+    sampler=ProbabilitySampler(1.0),
+)
 app = Flask(__name__)
 
 # Requests
-#middleware = # TODO: Setup flask middleware
+middleware = FlaskMiddleware(
+    app,
+    exporter=AzureExporter(connection_string=appInsightsConnectionString),
+    sampler=ProbabilitySampler(rate=1.0)
+)
 
 # Load configurations from environment or config file
 app.config.from_pyfile('config_file.cfg')
@@ -66,11 +83,13 @@ def index():
         # Get current values
         vote1 = r.get(button1).decode('utf-8')
         # TODO: use tracer object to trace cat vote
-        tracer.track_trace('Cats are having: ', vote1)
+        with tracer.span(name="Cate votes") as span:
+            print("Cate vote")
 
         vote2 = r.get(button2).decode('utf-8')
         # TODO: use tracer object to trace dog vote
-        tracer.track_trace('Dogs are having: ', vote2)
+        with tracer.span(name="Dogs vote") as span:
+            print("Dogs vote")
 
         # Return index with values
         return render_template("index.html", value1=int(vote1), value2=int(vote2), button1=button1, button2=button2, title=title)
@@ -85,12 +104,12 @@ def index():
             vote1 = r.get(button1).decode('utf-8')
             properties = {'custom_dimensions': {'Cats Vote': vote1}}
             # TODO: use logger object to log cat vote
-            logger.info('Cats got ' + vote1); 
+            logger.info('Cats vote', extra=properties)
 
             vote2 = r.get(button2).decode('utf-8')
             properties = {'custom_dimensions': {'Dogs Vote': vote2}}
             # TODO: use logger object to log dog vote
-            logger.info('Dogs got ' + vote2); 
+            logger.info('Dogs vote', extra=properties)
 
             return render_template("index.html", value1=int(vote1), value2=int(vote2), button1=button1, button2=button2, title=title)
 
