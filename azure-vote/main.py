@@ -1,12 +1,4 @@
 from flask import Flask, request, render_template
-from opencensus.ext.azure.log_exporter import AzureLogHandler
-from opencensus.ext.azure.log_exporter import AzureEventHandler
-from opencensus.stats import stats as stats_module
-from opencensus.trace.tracer import Tracer
-from opencensus.ext.azure import metrics_exporter
-from opencensus.ext.flask.flask_middleware import FlaskMiddleware
-from opencensus.ext.azure.trace_exporter import AzureExporter
-from opencensus.trace.samplers import ProbabilitySampler
 import os
 import redis
 import socket
@@ -14,14 +6,27 @@ import logging
 
 # App Insights
 # TODO: Import required libraries for App Insights
+from opencensus.ext.azure.log_exporter import AzureLogHandler
+from opencensus.ext.azure.log_exporter import AzureEventHandler
+from opencensus.ext.azure import metrics_exporter
+from opencensus.stats import stats as stats_module
+from opencensus.trace import config_integration
+from opencensus.ext.azure.trace_exporter import AzureExporter
+from opencensus.trace.samplers import ProbabilitySampler
+from opencensus.trace.tracer import Tracer
+from opencensus.ext.flask.flask_middleware import FlaskMiddleware
 
 appInsightsConnectionString = 'InstrumentationKey=12c991c0-d41c-4929-a794-b62b5414f0f3'
+config_integration.trace_integrations(['logging'])
+config_integration.trace_integrations(['requests'])
+
 # Logging
 logger = logging.getLogger(__name__)
 handler = AzureLogHandler(connection_string=appInsightsConnectionString)
 handler.setFormatter(logging.Formatter('%(traceId)s %(spanId)s %(message)s'))
 logger.addHandler(handler)
-logger.addHandler(AzureEventHandler(connection_string=appInsightsConnectionString))
+#logger.addHandler(AzureEventHandler(connection_string=appInsightsConnectionString))
+logger.setLevel(logging.INFO)
 
 # Metrics
 stats = stats_module.stats
